@@ -91,6 +91,10 @@ jobs:
           OSSL_PREFIX=$(brew --prefix openssl@3)
           ZLIB_PREFIX=$(brew --prefix zlib)
           echo "linking against $LT_A"
+          echo "=== sample torrent_info symbols in archive (T=external text, t=local, s=private) ==="
+          nm -gU "$LT_A" 2>/dev/null | grep -i "torrent_info" | head -5 || true
+          echo "=== full nm visibility sample ==="
+          nm -o "$LT_A" 2>/dev/null | grep -i "torrent_infoC1\|torrent_infoC2\|5session" | head -5 || true
           clang++ -shared -fPIC -O2 -std=c++20 \
             -DTORRENT_LINKING_STATIC \
             -DBOOST_ASIO_ENABLE_CANCELIO -DBOOST_ASIO_NO_DEPRECATED \
@@ -99,7 +103,7 @@ jobs:
             -I"${{ env.libtorrent_path }}/include" \
             -I"$OSSL_PREFIX/include" \
             -o libtd_torrent.dylib td_torrent.cpp \
-            "$LT_A" \
+            -Wl,-force_load,"$LT_A" \
             "$OSSL_PREFIX/lib/libssl.a" \
             "$OSSL_PREFIX/lib/libcrypto.a" \
             "$ZLIB_PREFIX/lib/libz.a" \
