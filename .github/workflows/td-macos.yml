@@ -1,0 +1,128 @@
+name: Build td CLI (macOS)
+
+# Manually triggered release build: clones toodrive from Codeberg, builds static
+# libtorrent 2.1.0, links it into libtd_torrent, then `deno compile` into a
+# standalone `td` binary. Uploads the binary + the .dylib as artifacts.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "toodrive git ref (branch/tag/commit) to build"
+        required: true
+        default: "main"
+      libtorrent_version:
+        description: "libtorrent git tag/branch"
+        required: true
+        default: "v2.1.0"
+
+permissions: {}
+
+jobs:
+  build:
+    name: macos-arm64
+    runs-on: macos-latest
+
+    env:
+      boost_path: "${{ github.workspace }}/boost"
+      libtorrent_path: "${{ github.workspace }}/libtorrent"
+      td_dir: "${{ github.workspace }}/toodrive"
+
+    steps:
+      - name: Install dependencies
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          brew update > /dev/null
+          brew install openssl@3 zlib
+
+      - name: Fetch boost (headers only)
+        run: |
+          curl -L -o /tmp/boost.tar.gz "https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz"
+          tar -xf /tmp/boost.tar.gz -C "${{ github.workspace }}"
+          mv "${{ github.workspace }}"/boost_* "${{ env.boost_path }}"
+          cd "${{ env.boost_path }}"
+          ./bootstrap.sh
+          ./b2 stage --stagedir=./ --with-headers
+
+      - name: Fetch libtorrent ${{ inputs.libtorrent_version }}
+        run: |
+          git clone \
+            --branch ${{ inputs.libtorrent_version }} \
+            --depth 1 \
+            --recurse-submodules \
+            https://github.com/arvidn/libtorrent.git \
+            ${{ env.libtorrent_path }}
+
+      - name: Build libtorrent (static)
+        run: |
+          cd ${{ env.libtorrent_path }}
+          cmake \
+            -B build \
+            -G "Ninja" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" \
+            -Ddeprecated-functions=OFF \
+            -Dwebtorrent=ON
+          cmake --build build
+          find build -name "libtorrent-rasterbar.a"
+
+      - name: Clone toodrive
+        run: |
+          git clone \
+            --branch ${{ inputs.ref }} \
+            --depth 1 \
+            https://codeberg.org/bl/toodrive.git \
+            ${{ env.td_dir }}
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Build libtd_torrent (static link against libtorrent.a)
+        run: |
+          cd ${{ env.td_dir }}/cli/native
+          LT_A=$(find "${{ env.libtorrent_path }}/build" -name "libtorrent-rasterbar.a" | head -1)
+          OSSL_PREFIX=$(brew --prefix openssl@3)
+          ZLIB_PREFIX=$(brew --prefix zlib)
+          echo "linking against $LT_A"
+          clang++ -shared -fPIC -O2 -std=c++20 \
+            -DTORRENT_LINKING_STATIC \
+            -DBOOST_ASIO_ENABLE_CANCELIO -DBOOST_ASIO_NO_DEPRECATED \
+            -DTORRENT_USE_OPENSSL -DTORRENT_USE_LIBCRYPTO -DTORRENT_SSL_PEERS \
+            -I"${{ env.boost_path }}" \
+            -I"${{ env.libtorrent_path }}/include" \
+            -I"$OSSL_PREFIX/include" \
+            -o libtd_torrent.dylib td_torrent.cpp \
+            "$LT_A" \
+            "$OSSL_PREFIX/lib/libssl.a" \
+            "$OSSL_PREFIX/lib/libcrypto.a" \
+            "$ZLIB_PREFIX/lib/libz.a"
+          echo "=== runtime deps ==="
+          otool -L libtd_torrent.dylib
+
+      - name: Compile td binary
+        run: |
+          cd ${{ env.td_dir }}/cli
+          deno compile -A \
+            --include native/libtd_torrent.dylib \
+            --output td main.ts
+          ./td --version
+
+      - name: Upload td binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: td-macos-arm64-${{ inputs.ref }}
+          path: ${{ env.td_dir }}/cli/td
+          retention-days: 90
+
+      - name: Upload libtd_torrent.dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtd_torrent-macos-arm64-${{ inputs.ref }}
+          path: ${{ env.td_dir }}/cli/native/libtd_torrent.dylib
+          retention-days: 90

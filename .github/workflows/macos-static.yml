@@ -1,0 +1,85 @@
+name: Build libtorrent static (macOS)
+
+# Manually triggered build farm: compiles libtorrent 2.1.0 as a static library
+# and uploads the .a + headers as an artifact for the toodrive CLI to link against.
+on:
+  workflow_dispatch:
+    inputs:
+      libtorrent_version:
+        description: "libtorrent git tag/branch"
+        required: true
+        default: "v2.1.0"
+
+permissions: {}
+
+jobs:
+  build:
+    name: macos-arm64
+    runs-on: macos-latest
+
+    env:
+      boost_path: "${{ github.workspace }}/boost"
+      libtorrent_path: "${{ github.workspace }}/libtorrent"
+      out_dir: "${{ github.workspace }}/out"
+
+    steps:
+      - name: Install dependencies
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          brew update > /dev/null
+          brew install openssl@3 zlib
+
+      - name: Fetch boost (headers only)
+        run: |
+          boost_url="https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz"
+          curl -L -o /tmp/boost.tar.gz "$boost_url"
+          tar -xf /tmp/boost.tar.gz -C "${{ github.workspace }}"
+          mv "${{ github.workspace }}"/boost_* "${{ env.boost_path }}"
+          cd "${{ env.boost_path }}"
+          ./bootstrap.sh
+          ./b2 stage --stagedir=./ --with-headers
+
+      - name: Fetch libtorrent ${{ inputs.libtorrent_version }}
+        run: |
+          git clone \
+            --branch ${{ inputs.libtorrent_version }} \
+            --depth 1 \
+            --recurse-submodules \
+            https://github.com/arvidn/libtorrent.git \
+            ${{ env.libtorrent_path }}
+
+      - name: Build libtorrent (static)
+        run: |
+          cd ${{ env.libtorrent_path }}
+          cmake \
+            -B build \
+            -G "Ninja" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" \
+            -Ddeprecated-functions=OFF \
+            -Dwebtorrent=ON
+          cmake --build build
+
+      - name: Package static lib + headers
+        run: |
+          mkdir -p "${{ env.out_dir }}/lib" "${{ env.out_dir }}/include"
+          find "${{ env.libtorrent_path }}/build" -name "libtorrent-rasterbar.a" -exec cp {} "${{ env.out_dir }}/lib/" \;
+          cp -r "${{ env.libtorrent_path }}/include/libtorrent" "${{ env.out_dir }}/include/"
+          {
+            echo "libtorrent ${{ inputs.libtorrent_version }} static (macOS arm64)"
+            echo "link: -ltorrent-rasterbar -lssl -lcrypto -lz"
+            echo "defines: -DTORRENT_LINKING_STATIC -DBOOST_ASIO_ENABLE_CANCELIO -DTORRENT_USE_OPENSSL -DTORRENT_USE_LIBCRYPTO -DTORRENT_SSL_PEERS"
+          } > "${{ env.out_dir }}/README.txt"
+          ls -la "${{ env.out_dir }}/lib"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtorrent-static-macos-arm64-${{ inputs.libtorrent_version }}
+          path: ${{ env.out_dir }}
+          retention-days: 90
