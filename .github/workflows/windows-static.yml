@@ -8,7 +8,7 @@ on:
       libtorrent_version:
         description: "libtorrent git tag/branch"
         required: true
-        default: "v2.1.0"
+        default: "RC_2_1"
 
 permissions: {}
 
