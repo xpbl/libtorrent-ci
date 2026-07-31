@@ -94,7 +94,6 @@ jobs:
           LT_A=$(find "${{ env.libtorrent_path }}/build" -name "libtorrent-rasterbar.a" | head -1)
           echo "linking against $LT_A"
           g++ -shared -fPIC -O2 -std=c++20 \
-            -DTORRENT_LINKING_STATIC \
             -DBOOST_ASIO_ENABLE_CANCELIO -DBOOST_ASIO_NO_DEPRECATED \
             -DTORRENT_USE_OPENSSL -DTORRENT_USE_LIBCRYPTO -DTORRENT_SSL_PEERS \
             -I"${{ env.boost_path }}" \
