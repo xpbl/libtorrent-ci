@@ -62,7 +62,7 @@ jobs:
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" \
             -Ddeprecated-functions=OFF \
-            -Dwebtorrent=ON
+            -Dwebtorrent=OFF
           cmake --build build
 
       - name: Package static lib + headers

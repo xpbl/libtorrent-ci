@@ -70,9 +70,8 @@ jobs:
           curl -L -o "${{ runner.temp }}/boost.tar.gz" "https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz"
           tar -xf "${{ runner.temp }}/boost.tar.gz" -C "${{ github.workspace }}"
           move "${{ github.workspace }}/boost_*" "${{ env.boost_path }}"
-          cd "${{ env.boost_path }}"
-          .\bootstrap.bat
-          .\b2 stage --stagedir=.\ --with-headers
+          # libtorrent 2.x needs only Boost headers, which are already in the
+          # extracted tree at <boost_path>/boost/. No bootstrap/b2 required.
 
       - name: Fetch libtorrent ${{ inputs.libtorrent_version }}
         run: |
@@ -92,12 +91,13 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_CXX_STANDARD=20 `
             -DCMAKE_TOOLCHAIN_FILE="${{ env.vcpkg_path }}/scripts/buildsystems/vcpkg.cmake" `
-            -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" `
+            -DBOOST_ROOT="${{ env.boost_path }}" `
+            -DBoost_INCLUDE_DIR="${{ env.boost_path }}" `
             -DBUILD_SHARED_LIBS=OFF `
             -Ddeprecated-functions=OFF `
             -Dstatic_runtime=OFF `
             -DVCPKG_TARGET_TRIPLET=x64-windows-static-md-release `
-            -Dwebtorrent=ON
+            -Dwebtorrent=OFF
           cmake --build build --config Release
           Get-ChildItem -Recurse -Path build -Filter "torrent-rasterbar.lib"
 
