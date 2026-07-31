@@ -64,6 +64,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=20 \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_CXX_FLAGS="-fvisibility=default -fvisibility-inlines-hidden=false" \
             -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" \
             -Ddeprecated-functions=OFF \
             -Dwebtorrent=OFF
