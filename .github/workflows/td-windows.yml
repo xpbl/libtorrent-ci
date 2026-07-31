@@ -120,6 +120,14 @@ jobs:
           $lt = (Get-ChildItem -Recurse -Path "${{ env.libtorrent_path }}/build" -Filter "torrent-rasterbar.lib" | Select-Object -First 1).FullName
           $triplet = "${{ env.vcpkg_path }}/installed/x64-windows-static-md-release"
           Write-Host "linking against $lt"
+          Write-Host "=== triplet lib dir ==="
+          Get-ChildItem "$triplet/lib" -Filter *.lib | Select-Object -ExpandProperty Name
+          # zlib's static lib name varies (zlib.lib vs zlibstatic.lib); resolve it.
+          $zlib = Get-ChildItem "$triplet/lib" -Filter *.lib |
+            Where-Object { $_.Name -match '^(zlib|zlibstatic|z)\.lib$' } |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $zlib) { throw "no zlib .lib found under $triplet/lib" }
+          Write-Host "using zlib: $zlib"
           cl /LD /O2 /std:c++20 /MD /EHsc `
             /DTORRENT_LINKING_STATIC `
             /DBOOST_ASIO_ENABLE_CANCELIO /DBOOST_ASIO_NO_DEPRECATED `
@@ -132,7 +140,7 @@ jobs:
             "$lt" `
             "$triplet/lib/libssl.lib" `
             "$triplet/lib/libcrypto.lib" `
-            "$triplet/lib/zlib.lib" `
+            "$zlib" `
             ws2_32.lib iphlpapi.lib crypt32.lib advapi32.lib bcrypt.lib dbghelp.lib `
             /OUT:libtd_torrent.dll
           Write-Host "=== runtime deps ==="
