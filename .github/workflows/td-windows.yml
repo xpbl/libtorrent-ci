@@ -122,9 +122,10 @@ jobs:
           Write-Host "linking against $lt"
           Write-Host "=== triplet lib dir ==="
           Get-ChildItem "$triplet/lib" -Filter *.lib | Select-Object -ExpandProperty Name
-          # zlib's static lib name varies (zlib.lib vs zlibstatic.lib); resolve it.
+          # zlib's static lib name varies by port/triplet: zlib.lib, zlibstatic.lib,
+          # z.lib, or zs.lib (zlib static). Resolve whichever exists.
           $zlib = Get-ChildItem "$triplet/lib" -Filter *.lib |
-            Where-Object { $_.Name -match '^(zlib|zlibstatic|z)\.lib$' } |
+            Where-Object { $_.Name -match '^(zlib|zlibstatic|zs|z)\.lib$' } |
             Select-Object -First 1 -ExpandProperty FullName
           if (-not $zlib) { throw "no zlib .lib found under $triplet/lib" }
           Write-Host "using zlib: $zlib"
