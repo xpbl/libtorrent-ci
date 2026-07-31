@@ -142,7 +142,7 @@ jobs:
             "$triplet/lib/libssl.lib" `
             "$triplet/lib/libcrypto.lib" `
             "$zlib" `
-            ws2_32.lib iphlpapi.lib crypt32.lib advapi32.lib bcrypt.lib dbghelp.lib `
+            ws2_32.lib iphlpapi.lib crypt32.lib advapi32.lib bcrypt.lib dbghelp.lib user32.lib `
             /OUT:libtd_torrent.dll
           Write-Host "=== runtime deps ==="
           dumpbin /dependents libtd_torrent.dll
