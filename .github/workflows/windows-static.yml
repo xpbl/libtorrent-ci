@@ -112,7 +112,7 @@ jobs:
           @"
           libtorrent ${{ inputs.libtorrent_version }} static (Windows x64, MSVC, dynamic CRT)
           link: torrent-rasterbar.lib + openssl + zlib (see vcpkg triplet x64-windows-static-md)
-          defines: TORRENT_LINKING_STATIC BOOST_ASIO_ENABLE_CANCELIO TORRENT_USE_OPENSSL TORRENT_USE_LIBCRYPTO TORRENT_SSL_PEERS
+          defines: BOOST_ASIO_ENABLE_CANCELIO TORRENT_USE_OPENSSL TORRENT_USE_LIBCRYPTO TORRENT_SSL_PEERS
           NOTE: built with static_runtime=OFF (/MD). Consumers must also use /MD to match the CRT.
           "@ | Out-File -Encoding utf8 "${{ env.out_dir }}/README.txt"
           Get-ChildItem "${{ env.out_dir }}/lib"
