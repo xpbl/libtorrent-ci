@@ -9,8 +9,14 @@ on:
         description: "libtorrent git tag/branch"
         required: true
         default: "RC_2_1"
+      release:
+        description: "Create a GitHub release with the built artifacts"
+        required: false
+        type: boolean
+        default: false
 
-permissions: {}
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -81,3 +87,20 @@ jobs:
           name: libtorrent-static-linux-x86_64-${{ inputs.libtorrent_version }}
           path: ${{ env.out_dir }}
           retention-days: 90
+
+      - name: Package release archive
+        if: inputs.release
+        run: |
+          cd "${{ env.out_dir }}"
+          tar -czf "${{ runner.temp }}/libtorrent-static-linux-x86_64.tar.gz" .
+
+      - name: Create GitHub release
+        if: inputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="libtorrent-$(date -u +%Y%m%d%H%M%SZ)"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            "${{ runner.temp }}/libtorrent-static-linux-x86_64.tar.gz"

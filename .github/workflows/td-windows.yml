@@ -14,8 +14,14 @@ on:
         description: "libtorrent git tag/branch"
         required: true
         default: "RC_2_1"
+      release:
+        description: "Create a GitHub release with the built artifacts"
+        required: false
+        type: boolean
+        default: false
 
-permissions: {}
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -168,3 +174,16 @@ jobs:
           name: libtd_torrent-windows-x64-${{ inputs.ref }}
           path: ${{ env.td_dir }}/cli/native/libtd_torrent.dll
           retention-days: 90
+
+      - name: Prepare release asset
+        if: inputs.release
+        run: |
+          Copy-Item "${{ env.td_dir }}/cli/td.exe" "${{ runner.temp }}/td-windows-x64.exe"
+
+      - name: Create GitHub release
+        if: inputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $TAG = "td-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')Z"
+          gh release create $TAG --title $TAG --generate-notes "${{ runner.temp }}/td-windows-x64.exe"
