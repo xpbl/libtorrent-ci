@@ -153,7 +153,7 @@ jobs:
           deno compile -A `
             --include native/libtd_torrent.dll `
             --output td.exe main.ts
-          .\td.exe --version
+          .\td.exe torrent --help
 
       - name: Upload td.exe
         uses: actions/upload-artifact@v4

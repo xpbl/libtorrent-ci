@@ -94,10 +94,12 @@ jobs:
           LT_A=$(find "${{ env.libtorrent_path }}/build" -name "libtorrent-rasterbar.a" | head -1)
           echo "linking against $LT_A"
           g++ -shared -fPIC -O2 -std=c++20 \
+            -DTORRENT_ABI_VERSION=100 \
             -DBOOST_ASIO_ENABLE_CANCELIO -DBOOST_ASIO_NO_DEPRECATED \
             -DTORRENT_USE_OPENSSL -DTORRENT_USE_LIBCRYPTO -DTORRENT_SSL_PEERS \
             -I"${{ env.boost_path }}" \
             -I"${{ env.libtorrent_path }}/include" \
+            -Wl,--no-undefined \
             -o libtd_torrent.so td_torrent.cpp \
             "$LT_A" \
             /usr/lib/x86_64-linux-gnu/libssl.a \
@@ -105,7 +107,7 @@ jobs:
             /usr/lib/x86_64-linux-gnu/libz.a \
             -ldl -lpthread
           echo "=== runtime deps (should be no libtorrent/ssl/crypto/z) ==="
-          ldd libtd_torrent.so
+          ldd -r libtd_torrent.so
 
       - name: Compile td binary
         run: |
@@ -113,7 +115,9 @@ jobs:
           deno compile -A \
             --include native/libtd_torrent.so \
             --output td main.ts
-          ./td --version
+          # Exercise module evaluation and Deno.dlopen; the runtime's own
+          # --version fast-path can exit before loading the embedded FFI library.
+          ./td torrent --help
 
       - name: Upload td binary
         uses: actions/upload-artifact@v4

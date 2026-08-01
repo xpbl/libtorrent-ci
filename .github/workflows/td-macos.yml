@@ -113,7 +113,7 @@ jobs:
           deno compile -A \
             --include native/libtd_torrent.dylib \
             --output td main.ts
-          ./td --version
+          ./td torrent --help
 
       - name: Upload td binary
         uses: actions/upload-artifact@v4
