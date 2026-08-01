@@ -129,10 +129,39 @@ jobs:
         run: |
           Compress-Archive -Path "${{ env.out_dir }}\*" -DestinationPath "${{ runner.temp }}\libtorrent-static-windows-x64.zip"
 
-      - name: Create GitHub release
+      - name: Checkout release helper
+        if: inputs.release
+        uses: actions/checkout@v4
+
+      - name: Allocate GitHub release
+        if: inputs.release
+        id: release_slot
+        uses: actions/github-script@v9
+        env:
+          RELEASE_PRODUCT: libtorrent
+          RELEASE_ASSET_NAME: libtorrent-static-windows-x64.zip
+        with:
+          script: |
+            const { allocateCurrentRelease } = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/release-slot.js`,
+            );
+            await allocateCurrentRelease({ github, context, core });
+
+      - name: Upload release asset
         if: inputs.release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $TAG = "libtorrent-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')Z"
-          gh release create -R $env:GITHUB_REPOSITORY $TAG --title $TAG --generate-notes "${{ runner.temp }}\libtorrent-static-windows-x64.zip"
+          gh release upload -R $env:GITHUB_REPOSITORY "${{ steps.release_slot.outputs.tag }}" "${{ runner.temp }}\libtorrent-static-windows-x64.zip#Windows x86_64"
+
+      - name: Update release metadata
+        if: inputs.release
+        uses: actions/github-script@v9
+        env:
+          RELEASE_TAG: ${{ steps.release_slot.outputs.tag }}
+        with:
+          script: |
+            const { refreshCurrentReleaseMetadata } = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/release-slot.js`,
+            );
+            await refreshCurrentReleaseMetadata({ github, context });

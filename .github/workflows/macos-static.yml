@@ -96,13 +96,40 @@ jobs:
           cd "${{ env.out_dir }}"
           tar -czf "${{ runner.temp }}/libtorrent-static-macos-arm64.tar.gz" .
 
-      - name: Create GitHub release
+      - name: Checkout release helper
+        if: inputs.release
+        uses: actions/checkout@v4
+
+      - name: Allocate GitHub release
+        if: inputs.release
+        id: release_slot
+        uses: actions/github-script@v9
+        env:
+          RELEASE_PRODUCT: libtorrent
+          RELEASE_ASSET_NAME: libtorrent-static-macos-arm64.tar.gz
+        with:
+          script: |
+            const { allocateCurrentRelease } = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/release-slot.js`,
+            );
+            await allocateCurrentRelease({ github, context, core });
+
+      - name: Upload release asset
         if: inputs.release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="libtorrent-$(date -u +%Y%m%d%H%M%SZ)"
-          gh release create -R "$GITHUB_REPOSITORY" "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            "${{ runner.temp }}/libtorrent-static-macos-arm64.tar.gz"
+          gh release upload -R "$GITHUB_REPOSITORY" "${{ steps.release_slot.outputs.tag }}" \
+            "${{ runner.temp }}/libtorrent-static-macos-arm64.tar.gz#macOS arm64"
+
+      - name: Update release metadata
+        if: inputs.release
+        uses: actions/github-script@v9
+        env:
+          RELEASE_TAG: ${{ steps.release_slot.outputs.tag }}
+        with:
+          script: |
+            const { refreshCurrentReleaseMetadata } = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/release-slot.js`,
+            );
+            await refreshCurrentReleaseMetadata({ github, context });
