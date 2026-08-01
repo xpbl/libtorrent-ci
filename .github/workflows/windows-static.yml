@@ -135,4 +135,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $TAG = "libtorrent-$(Get-Date -AsUTC -Format 'yyyyMMddHHmmss')Z"
-          gh release create $TAG --title $TAG --generate-notes "${{ runner.temp }}\libtorrent-static-windows-x64.zip"
+          gh release create -R $env:GITHUB_REPOSITORY $TAG --title $TAG --generate-notes "${{ runner.temp }}\libtorrent-static-windows-x64.zip"

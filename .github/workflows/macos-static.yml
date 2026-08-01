@@ -102,7 +102,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="libtorrent-$(date -u +%Y%m%d%H%M%SZ)"
-          gh release create "$TAG" \
+          gh release create -R "$GITHUB_REPOSITORY" "$TAG" \
             --title "$TAG" \
             --generate-notes \
             "${{ runner.temp }}/libtorrent-static-macos-arm64.tar.gz"
